@@ -72,10 +72,12 @@ workflows:
       - name: Increment build number
         script: |
           cd ios/App
-          # get-latest-testflight-build-number berücksichtigt auch in-review Builds
-          LATEST_BUILD=$(app-store-connect get-latest-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo "0")
-          NEXT_BUILD=$((LATEST_BUILD + 1))
-          echo "Latest Apple build: $LATEST_BUILD → Setting build number to $NEXT_BUILD"
+          # Use a timestamp-based build number — guarantees uniqueness across rebuilds
+          # Format: YYMMDDHHMM (z.B. 2605212010 für 21.05.2026 20:10)
+          NEXT_BUILD=$(date -u +"%y%m%d%H%M")
+          # Strip leading zero so agvtool doesn't complain about leading zeros
+          NEXT_BUILD=$((10#$NEXT_BUILD))
+          echo "Setting build number to $NEXT_BUILD (timestamp-based)"
           agvtool new-version -all $NEXT_BUILD
 
       - name: Build IPA for TestFlight
