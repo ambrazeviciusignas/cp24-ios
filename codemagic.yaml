@@ -1,0 +1,105 @@
+# containerpreis24 — iOS TestFlight Build Pipeline
+
+workflows:
+  ios-testflight-build:
+    name: iOS TestFlight Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - app-store-connect-credentials
+      node: 20
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "de.containerpreis24.app"
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        APP_STORE_APP_ID: "6771851906"
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm install
+
+      - name: Pull live web shell from VPS
+        script: npm run build:web
+
+      - name: Stash iOS overrides + regenerate platform
+        script: |
+          set -e
+          OVERRIDE_DIR=/tmp/ios-overrides
+          rm -rf "$OVERRIDE_DIR" && mkdir -p "$OVERRIDE_DIR"
+          [ -f ios/App/App/Info.plist.template ] && cp ios/App/App/Info.plist.template "$OVERRIDE_DIR/" || true
+          [ -f ios/App/App/PrivacyInfo.xcprivacy ] && cp ios/App/App/PrivacyInfo.xcprivacy "$OVERRIDE_DIR/" || true
+          [ -f ios/App/App/App.entitlements ] && cp ios/App/App/App.entitlements "$OVERRIDE_DIR/" || true
+          [ -d ios/App/App/Assets.xcassets ] && cp -r ios/App/App/Assets.xcassets "$OVERRIDE_DIR/" || true
+          rm -rf ios
+          npx cap add ios
+          # Apple-conforming Bundle-ID hat keine Dashes-Issue (de.containerpreis24.app passt Java-Form bereits)
+          npx cap sync ios
+
+      - name: Apply iOS overrides (Info.plist + Entitlements + Privacy Manifest + Assets)
+        script: |
+          set -e
+          OVERRIDE_DIR=/tmp/ios-overrides
+          if [ -f "$OVERRIDE_DIR/Info.plist.template" ]; then
+            cp "$OVERRIDE_DIR/Info.plist.template" ios/App/App/Info.plist
+          fi
+          [ -f "$OVERRIDE_DIR/PrivacyInfo.xcprivacy" ] && cp "$OVERRIDE_DIR/PrivacyInfo.xcprivacy" ios/App/App/
+          [ -f "$OVERRIDE_DIR/App.entitlements" ] && cp "$OVERRIDE_DIR/App.entitlements" ios/App/App/
+          [ -d "$OVERRIDE_DIR/Assets.xcassets" ] && rm -rf ios/App/App/Assets.xcassets && cp -r "$OVERRIDE_DIR/Assets.xcassets" ios/App/App/
+          ls -la ios/App/App/PrivacyInfo.xcprivacy ios/App/App/App.entitlements ios/App/App/Info.plist
+
+      - name: Initialize keychain & fetch signing files (auto via ASC API)
+        script: |
+          set -e
+          keychain initialize
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --certificate-key=@file:/tmp/cert_key.pem
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Increment build number
+        script: |
+          cd ios/App
+          LATEST_BUILD=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo "0")
+          NEXT_BUILD=$((LATEST_BUILD + 1))
+          echo "Setting build number to $NEXT_BUILD"
+          agvtool new-version -all $NEXT_BUILD
+
+      - name: Build IPA for TestFlight
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
+
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        beta_groups:
+          - "Internal Testers"
+      email:
+        recipients:
+          - ambrazevicius.ignas@gmail.com
+        notify:
+          success: true
+          failure: true

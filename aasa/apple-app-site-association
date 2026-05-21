@@ -1,0 +1,22 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["34KN2KJQJ5.de.containerpreis24.app"],
+        "components": [
+          { "/": "/",                "comment": "Root" },
+          { "/": "/app",             "comment": "App shell" },
+          { "/": "/app/*",           "comment": "App sub-routes" },
+          { "/": "/anfrage",         "comment": "Anfrage form" },
+          { "/": "/checkout/*",      "comment": "Checkout flow" },
+          { "/": "/order/*",         "comment": "Order detail" },
+          { "/": "/kunde/*",         "comment": "Customer portal" },
+          { "/": "/entsorger/*",     "comment": "Entsorger portal" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["34KN2KJQJ5.de.containerpreis24.app"]
+  }
+}
