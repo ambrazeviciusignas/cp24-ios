@@ -72,9 +72,10 @@ workflows:
       - name: Increment build number
         script: |
           cd ios/App
-          LATEST_BUILD=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo "0")
+          # get-latest-testflight-build-number berücksichtigt auch in-review Builds
+          LATEST_BUILD=$(app-store-connect get-latest-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo "0")
           NEXT_BUILD=$((LATEST_BUILD + 1))
-          echo "Setting build number to $NEXT_BUILD"
+          echo "Latest Apple build: $LATEST_BUILD → Setting build number to $NEXT_BUILD"
           agvtool new-version -all $NEXT_BUILD
 
       - name: Build IPA for TestFlight
