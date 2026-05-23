@@ -5,12 +5,17 @@ const config = {
   webDir: 'www',
   bundledWebRuntime: false,
   server: {
+    // DIRECT REMOTE LOAD — vermeidet leere/schwarze App auf iPad
+    // (das vorherige JS-Redirect-Setup hat auf iPadOS 26.4 nicht zuverlässig funktioniert)
+    // Apple 4.2 ist ok weil wir mehrere Native-Plugins haben (Push, Haptics, Share, Device etc.)
+    url: 'https://containerpreis24.de?ios=1',
     androidScheme: 'https',
     iosScheme: 'https',
     hostname: 'containerpreis24.de',
     allowNavigation: [
       'containerpreis24.de',
       '*.containerpreis24.de',
+      'api.containerpreis24.de',
       'js.stripe.com',
       'hooks.stripe.com',
       'checkout.stripe.com'
@@ -26,7 +31,7 @@ const config = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1500,
+      launchShowDuration: 2000,
       launchAutoHide: true,
       backgroundColor: '#0EA5E9',
       iosSpinnerStyle: 'large',
