@@ -61,7 +61,7 @@ workflows:
         script: |
           set -e
           keychain initialize
-          openssl genrsa -out /tmp/cert_key.pem 2048
+          printf '%s' "$IOS_DIST_CERT_KEY" > /tmp/cert_key.pem  # Gemeinsamer Signing-Key (Fix 2026-06-06: Cert-Limit 409)
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
