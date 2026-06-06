@@ -32,11 +32,13 @@ const config = {
   },
   plugins: {
     SplashScreen: {
-      // KEY FIX: Don't auto-hide. Keep splash visible until WebView truly ready.
-      // The cp24-native.js bridge on the live site calls SplashScreen.hide()
-      // after window.load - this prevents the "splash gone, webview empty = black" race.
-      launchShowDuration: 6000,
-      launchAutoHide: false,
+      // FIX 2026-06-06 (Apple 2.1a blank black screen):
+      // launchAutoHide:false wartete auf SplashScreen.hide() aus cp24-native.js -
+      // dieser Aufruf existierte auf der Live-Site nie => Splash blieb ewig stehen.
+      // launchAutoHide:true garantiert jetzt, dass der Splash IMMER verschwindet.
+      // Zusaetzlich ruft cp24-native.js (Server-Fix 2026-06-06) hide() aktiv auf.
+      launchShowDuration: 2500,
+      launchAutoHide: true,
       backgroundColor: '#0EA5E9',
       iosSpinnerStyle: 'large',
       spinnerColor: '#F97316',
