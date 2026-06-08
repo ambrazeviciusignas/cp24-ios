@@ -45,17 +45,34 @@ workflows:
           # Apple-conforming Bundle-ID hat keine Dashes-Issue (de.containerpreis24.app passt Java-Form bereits)
           npx cap sync ios
 
-      - name: Apply iOS overrides (Info.plist + Entitlements + Privacy Manifest + Assets)
+      - name: Apply iOS overrides (Info.plist MERGE + Entitlements + Privacy Manifest + Assets)
         script: |
           set -e
           OVERRIDE_DIR=/tmp/ios-overrides
-          if [ -f "$OVERRIDE_DIR/Info.plist.template" ]; then
-            cp "$OVERRIDE_DIR/Info.plist.template" ios/App/App/Info.plist
-          fi
+          # WICHTIG: Info.plist NICHT mehr mit der Template ueberschreiben — die referenzierte
+          # eine nicht existierende SceneDelegate-Klasse (App.SceneDelegate) => schwarzer Screen.
+          # Stattdessen Capacitors korrekte Info.plist behalten und nur noetige Keys mergen.
+          PB=/usr/libexec/PlistBuddy
+          PLIST=ios/App/App/Info.plist
+          $PB -c "Set :CFBundleDisplayName containerpreis24" "$PLIST" 2>/dev/null || $PB -c "Add :CFBundleDisplayName string containerpreis24" "$PLIST"
+          # ATS-Ausnahme fuer containerpreis24.de
+          $PB -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
+          $PB -c "Add :NSAppTransportSecurity dict" "$PLIST"
+          $PB -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool false" "$PLIST"
+          $PB -c "Add :NSAppTransportSecurity:NSExceptionDomains dict" "$PLIST"
+          $PB -c "Add :NSAppTransportSecurity:NSExceptionDomains:containerpreis24.de dict" "$PLIST"
+          $PB -c "Add :NSAppTransportSecurity:NSExceptionDomains:containerpreis24.de:NSIncludesSubdomains bool true" "$PLIST"
+          $PB -c "Add :NSAppTransportSecurity:NSExceptionDomains:containerpreis24.de:NSTemporaryExceptionMinimumTLSVersion string TLSv1.2" "$PLIST"
+          # Usage-Descriptions (nur falls fehlend)
+          $PB -c "Add :NSCameraUsageDescription string 'Für Foto-Upload bei Schaden-Meldung'" "$PLIST" 2>/dev/null || true
+          $PB -c "Add :NSPhotoLibraryUsageDescription string 'Um Container-Fotos zur Bestellung hinzuzufügen'" "$PLIST" 2>/dev/null || true
+          $PB -c "Add :NSLocationWhenInUseUsageDescription string 'Um Entsorger in deiner Nähe zu finden'" "$PLIST" 2>/dev/null || true
           [ -f "$OVERRIDE_DIR/PrivacyInfo.xcprivacy" ] && cp "$OVERRIDE_DIR/PrivacyInfo.xcprivacy" ios/App/App/
           [ -f "$OVERRIDE_DIR/App.entitlements" ] && cp "$OVERRIDE_DIR/App.entitlements" ios/App/App/
           [ -d "$OVERRIDE_DIR/Assets.xcassets" ] && rm -rf ios/App/App/Assets.xcassets && cp -r "$OVERRIDE_DIR/Assets.xcassets" ios/App/App/
-          ls -la ios/App/App/PrivacyInfo.xcprivacy ios/App/App/App.entitlements ios/App/App/Info.plist
+          echo "== gemergte Info.plist (SceneManifest + ATS) =="
+          plutil -p "$PLIST" | grep -iE "Scene|TransportSecurity|containerpreis24|BundleDisplay" | head
+          ls -la ios/App/App/PrivacyInfo.xcprivacy ios/App/App/App.entitlements "$PLIST"
 
       - name: iPad-Simulator Launch-Screenshot (Verify Apple 2.1a kein Black-Screen)
         ignore_failure: true
