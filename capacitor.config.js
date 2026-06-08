@@ -13,8 +13,10 @@ const config = {
   bundledWebRuntime: false,
   server: {
     androidScheme: 'https',
-    iosScheme: 'https',            // App-Origin = https://localhost (lokal gebundelt)
-    // KEIN url:, KEIN hostname: — sonst rendert WKWebView die Remote-Seite (Black-Screen)
+    // KEIN iosScheme:'https' — 'https' ist reserviert, WKWebView laedt es aus dem Netz
+    //   statt aus dem lokalen Bundle => schwarzer Screen. Default-Schema 'capacitor'
+    //   (capacitor://localhost) wird vom lokalen URLSchemeHandler bedient = lokaler Inhalt.
+    // KEIN url:, KEIN hostname: — sonst rendert WKWebView die Remote-Seite.
     allowNavigation: [
       'containerpreis24.de',
       '*.containerpreis24.de',
