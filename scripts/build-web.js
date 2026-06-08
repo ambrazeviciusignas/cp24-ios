@@ -108,6 +108,9 @@ const html = `<!DOCTYPE html>
 
 <script>
 (function(){
+  console.log('CP24_SHELL_READY: script start');
+  document.addEventListener('DOMContentLoaded', function(){ console.log('CP24_SHELL_READY: DOMContentLoaded, body=' + (document.body? 'yes':'no')); });
+  window.addEventListener('load', function(){ console.log('CP24_SHELL_READY: window.load, form=' + (document.getElementById('plz')? 'yes':'no')); });
   var API = 'https://containerpreis24.de';
   var SIZES = [3,5,7,10,15,20,30,40];
   var size = 7;
