@@ -57,6 +57,32 @@ workflows:
           [ -d "$OVERRIDE_DIR/Assets.xcassets" ] && rm -rf ios/App/App/Assets.xcassets && cp -r "$OVERRIDE_DIR/Assets.xcassets" ios/App/App/
           ls -la ios/App/App/PrivacyInfo.xcprivacy ios/App/App/App.entitlements ios/App/App/Info.plist
 
+      - name: iPad-Simulator Launch-Screenshot (Verify Apple 2.1a kein Black-Screen)
+        ignore_failure: true
+        script: |
+          set +e
+          mkdir -p artifacts
+          echo "== Verfuegbare iPad-Simulatoren =="
+          xcrun simctl list devices available | grep -i 'iPad' || true
+          UDID=$(xcrun simctl list devices available | grep -iE 'iPad Air|iPad Pro|iPad' | grep -oE '[0-9A-Fa-f-]{8}-[0-9A-Fa-f-]{4}-[0-9A-Fa-f-]{4}-[0-9A-Fa-f-]{4}-[0-9A-Fa-f-]{12}' | head -1)
+          echo "Gewaehltes iPad: $UDID"
+          [ -z "$UDID" ] && { echo "Kein iPad-Sim verfuegbar"; exit 0; }
+          xcrun simctl boot "$UDID" 2>/dev/null
+          xcrun simctl bootstatus "$UDID" -b 2>/dev/null
+          # App unsigniert fuer Simulator bauen
+          xcodebuild -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME" \
+            -configuration Debug -sdk iphonesimulator -derivedDataPath build-sim \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -20
+          APP=$(find build-sim -name 'App.app' -type d | head -1)
+          echo "App.app: $APP"
+          [ -z "$APP" ] && { echo "Kein App.app gebaut"; exit 0; }
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 10
+          xcrun simctl io "$UDID" screenshot artifacts/ipad-launch.png
+          ls -la artifacts/
+          exit 0
+
       - name: Initialize keychain & fetch signing files (auto via ASC API)
         script: |
           set -e
@@ -88,6 +114,7 @@ workflows:
             --config Release
 
     artifacts:
+      - artifacts/*.png
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
