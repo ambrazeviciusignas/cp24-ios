@@ -60,37 +60,35 @@ workflows:
       - name: iPad-Simulator Launch-Screenshot (Verify Apple 2.1a kein Black-Screen)
         ignore_failure: true
         script: |
-          mkdir -p artifacts
-          # Alles ins Artefakt-Log spiegeln, damit wir Fehler sehen (auch wenn Step nicht bricht)
-          exec > >(tee artifacts/sim-step.log) 2>&1
-          echo "== Runtimes =="; xcrun simctl list runtimes | grep -i ios || true
-          echo "== iPad-Geraete =="; xcrun simctl list devices available | grep -i 'iPad' || true
-          # Vorhandenes iPad waehlen, sonst eines erstellen
-          UDID=$(xcrun simctl list devices available | grep -iE 'iPad Air|iPad Pro|iPad \(' | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' | head -1)
-          if [ -z "$UDID" ]; then
-            echo "Kein iPad vorhanden -> erstelle eines"
-            RT=$(xcrun simctl list runtimes | grep -i 'iOS' | grep -oE 'com.apple.CoreSimulator.SimRuntime.iOS[^ ]*' | tail -1)
-            DT=$(xcrun simctl list devicetypes | grep -iE 'iPad-Air|iPad-Pro|iPad' | grep -oE 'com.apple.CoreSimulator.SimDeviceType.[^ )]*' | head -1)
-            echo "Runtime=$RT DeviceType=$DT"
-            UDID=$(xcrun simctl create "cp24-ipad" "$DT" "$RT")
-          fi
-          echo "iPad UDID: $UDID"
-          [ -z "$UDID" ] && { echo "FAIL: kein iPad"; exit 0; }
-          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
-          echo "== Build fuer Simulator (unsigniert) =="
-          set -o pipefail
-          xcodebuild -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME" \
-            -configuration Debug -destination "id=$UDID" -derivedDataPath build-sim \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -25
-          APP=$(find build-sim -name 'App.app' -type d -path '*Simulator*' | head -1)
-          [ -z "$APP" ] && APP=$(find build-sim -name 'App.app' -type d | head -1)
-          echo "App.app: $APP"
-          [ -z "$APP" ] && { echo "FAIL: kein App.app"; exit 0; }
-          xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" "$BUNDLE_ID" || true
-          sleep 12
-          xcrun simctl io "$UDID" screenshot artifacts/ipad-launch.png
-          echo "== Artefakte =="; ls -la artifacts/
+          set +e
+          OUT="$CM_BUILD_DIR/artifacts"; mkdir -p "$OUT"
+          LOG="$OUT/sim-step.log"
+          {
+            echo "== Runtimes =="; xcrun simctl list runtimes | grep -i ios
+            echo "== iPad-Geraete =="; xcrun simctl list devices available | grep -i ipad
+            UDID=$(xcrun simctl list devices available | grep -i ipad | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}' | head -1)
+            if [ -z "$UDID" ]; then
+              RT=$(xcrun simctl list runtimes | grep -i ios | grep -oE 'com.apple.CoreSimulator.SimRuntime.iOS[^ ]*' | tail -1)
+              DT=$(xcrun simctl list devicetypes | grep -i ipad | grep -oE 'com.apple.CoreSimulator.SimDeviceType.[^ )]*' | head -1)
+              echo "Erstelle iPad: RT=$RT DT=$DT"
+              UDID=$(xcrun simctl create cp24-ipad "$DT" "$RT")
+            fi
+            echo "UDID=$UDID"
+            xcrun simctl boot "$UDID"
+            xcrun simctl bootstatus "$UDID" -b
+            echo "== xcodebuild Simulator (unsigniert) =="
+            xcodebuild -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME" \
+              -configuration Debug -destination "id=$UDID" -derivedDataPath build-sim \
+              CODE_SIGNING_ALLOWED=NO build
+            APP=$(find build-sim -name App.app -type d | head -1)
+            echo "APP=$APP"
+            xcrun simctl install "$UDID" "$APP"
+            xcrun simctl launch "$UDID" "$BUNDLE_ID"
+            sleep 12
+            xcrun simctl io "$UDID" screenshot "$OUT/ipad-launch.png"
+            echo "== OUT =="; ls -la "$OUT"
+          } > "$LOG" 2>&1
+          echo "---- sim-step.log (tail) ----"; tail -40 "$LOG"
           exit 0
 
       - name: Initialize keychain & fetch signing files (auto via ASC API)
@@ -124,7 +122,7 @@ workflows:
             --config Release
 
     artifacts:
-      - artifacts/*.png
+      - artifacts/*
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
