@@ -88,15 +88,14 @@ workflows:
             head -25 "$APP/public/index.html" 2>/dev/null
             echo "== public/ inhalt =="; ls -la "$APP/public" 2>/dev/null | head
             xcrun simctl install "$UDID" "$APP"
-            # App mit Konsole starten (Capacitor + Shell console.log landen hier)
-            xcrun simctl launch --console-pty "$UDID" "$BUNDLE_ID" > "$OUT/app-console.log" 2>&1 &
-            LPID=$!
+            xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE_ID"
             sleep 14
             xcrun simctl io "$UDID" screenshot "$OUT/ipad-launch.png"
-            kill $LPID 2>/dev/null
-            echo "== App-Konsole (Capacitor + CP24_SHELL_READY) =="
-            grep -iE 'capacitor|CP24_SHELL_READY|loading app|webview|loaded|did fail|error|cannot|unable' "$OUT/app-console.log" 2>/dev/null | head -40
-            echo "...(roh, erste 30 Zeilen)..."; head -30 "$OUT/app-console.log" 2>/dev/null
+            # Unified-Log des App-Prozesses (Capacitor NSLog + JS console.log) der letzten 25s
+            xcrun simctl spawn "$UDID" log show --predicate 'process == "App"' --last 25s --style compact > "$OUT/app-unified.log" 2>&1
+            echo "== App Unified-Log: Capacitor/WebView/Marker =="
+            grep -iE 'capacitor|CP24_SHELL_READY|loading app|webview|loaded|did fail|did finish|error|unable|could not' "$OUT/app-unified.log" 2>/dev/null | head -40
+            echo "== Unified-Log Zeilen gesamt =="; wc -l "$OUT/app-unified.log" 2>/dev/null
             echo "== OUT =="; ls -la "$OUT"
           } > "$LOG" 2>&1
           echo "---- sim-step.log (tail) ----"; tail -40 "$LOG"
