@@ -82,10 +82,17 @@ workflows:
               CODE_SIGNING_ALLOWED=NO build
             APP=$(find build-sim -name App.app -type d | head -1)
             echo "APP=$APP"
+            echo "== bundled capacitor.config.json =="
+            cat "$APP/capacitor.config.json" 2>/dev/null
+            echo "== bundled public/index.html (head) =="
+            head -25 "$APP/public/index.html" 2>/dev/null
+            echo "== public/ inhalt =="; ls -la "$APP/public" 2>/dev/null | head
             xcrun simctl install "$UDID" "$APP"
             xcrun simctl launch "$UDID" "$BUNDLE_ID"
             sleep 12
             xcrun simctl io "$UDID" screenshot "$OUT/ipad-launch.png"
+            echo "== App-Log (Capacitor Loading/Errors) =="
+            xcrun simctl spawn "$UDID" log show --style compact --last 25s 2>/dev/null | grep -iE 'capacitor|containerpreis|loading app|wkweb|webview|did fail|error|crash|fatal' | head -50
             echo "== OUT =="; ls -la "$OUT"
           } > "$LOG" 2>&1
           echo "---- sim-step.log (tail) ----"; tail -40 "$LOG"
