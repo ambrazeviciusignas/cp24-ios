@@ -55,6 +55,8 @@ workflows:
           PB=/usr/libexec/PlistBuddy
           PLIST=ios/App/App/Info.plist
           $PB -c "Set :CFBundleDisplayName containerpreis24" "$PLIST" 2>/dev/null || $PB -c "Add :CFBundleDisplayName string containerpreis24" "$PLIST"
+          # Marketing-Version 1.0.1 (v1.0 ist released -> Train 1.0 geschlossen, ASC verlangt hoehere Version)
+          $PB -c "Set :CFBundleShortVersionString 1.0.1" "$PLIST" 2>/dev/null || $PB -c "Add :CFBundleShortVersionString string 1.0.1" "$PLIST"
           # ATS-Ausnahme fuer containerpreis24.de
           $PB -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
           $PB -c "Add :NSAppTransportSecurity dict" "$PLIST"
@@ -140,6 +142,8 @@ workflows:
           NEXT_BUILD=$((10#$NEXT_BUILD))
           echo "Setting build number to $NEXT_BUILD (timestamp-based)"
           agvtool new-version -all $NEXT_BUILD
+          # Marketing-Version 1.0.1 (Train 1.0 geschlossen seit v1.0 live)
+          agvtool new-marketing-version 1.0.1 || true
 
       - name: Build IPA for TestFlight
         script: |
