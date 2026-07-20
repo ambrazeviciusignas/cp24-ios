@@ -143,7 +143,7 @@ workflows:
           echo "Setting build number to $NEXT_BUILD (timestamp-based)"
           agvtool new-version -all $NEXT_BUILD
           # Marketing-Version 1.0.1 (Train 1.0 geschlossen seit v1.0 live)
-          agvtool new-marketing-version 1.0.1 || true
+          agvtool new-marketing-version 1.0.2 || true
 
       - name: Build IPA for TestFlight
         script: |
